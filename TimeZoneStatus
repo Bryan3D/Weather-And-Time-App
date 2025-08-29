@@ -1,0 +1,148 @@
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ImageBackground } from "react-native";
+
+const safeString = (value) =>
+  value !== undefined && value !== null ? String(value) : "N/A";
+
+const TimeBox = ({ city, time, weather }) => (
+  <View style={styles.timebox}>
+    <Text style={styles.header}>{safeString(city)}</Text>
+    <Text style={styles.time}>{safeString(time)}</Text>
+    <Text style={styles.weather}>{`Temp: ${safeString(weather)}°F`}</Text>
+  </View>
+);
+
+const getTime = (timeZone) =>
+  new Date().toLocaleString("en-US", {
+    timeZone,
+    timeStyle: "medium",
+    hourCycle: "h12",
+  });
+
+const getWeather = async (city) => {
+  try {
+    const apiKey = "d80f280c9e256dcf041daa8984d9714a";
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    return data.main ? data.main.temp : "N/A";
+  } catch (error) {
+    console.error(`Error fetching weather for ${city}:`, error);
+    return "N/A";
+  }
+};
+
+const TimeZoneStatus = () => {
+  const [times, setTimes] = useState({});
+  const [weatherData, setWeatherData] = useState({});
+
+  useEffect(() => {
+    const fetchWeatherData = async () => {
+      const cities = ["San Juan", "Paris", "Tokyo", "Sydney", "Moscow"];
+      const weatherUpdate = await Promise.all(
+        cities.map(async (city) => {
+          const temp = await getWeather(city);
+          return { city, temp };
+        })
+      );
+
+      setWeatherData(
+        weatherUpdate.reduce((acc, { city, temp }) => {
+          acc[city] = temp;
+          return acc;
+        }, {})
+      );
+    };
+
+    fetchWeatherData();
+  }, []);
+
+  useEffect(() => {
+    const timeZoneMapping = {
+      "San Juan": "America/New_York",
+      Paris: "Europe/Paris",
+      Tokyo: "Asia/Tokyo",
+      Sydney: "Australia/Sydney",
+      Moscow: "Europe/Moscow",
+    };
+
+    const updateTimes = () => {
+      const newTimes = {};
+      for (const city in timeZoneMapping) {
+        newTimes[city] = getTime(timeZoneMapping[city]);
+      }
+      setTimes(newTimes);
+    };
+
+    updateTimes();
+    const interval = setInterval(updateTimes, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <ImageBackground
+      source={{
+        uri: "https://images.unsplash.com/photo-1653903056453-a52d9a2df52b?q=80",
+      }}
+      style={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <View style={styles.overlay} />
+      <Text style={styles.heading}>Planet Pulse: Time & Weather</Text>
+      <View style={styles.container}>
+        {Object.keys(times).map((city) => (
+          <TimeBox
+            key={city}
+            city={city}
+            time={times[city]}
+            weather={weatherData[city]}
+          />
+        ))}
+      </View>
+    </ImageBackground>
+  );
+};
+
+const styles = StyleSheet.create({
+  backgroundImage: { flex: 1, justifyContent: "center", alignItems: "center" },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+  },
+  heading: {
+    fontSize: 38,
+    fontWeight: "bold",
+    color: "#F5C542",
+    fontFamily: "Brush Script MT",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  container: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  timebox: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(37, 118, 142, 0.6)",
+    borderWidth: 4,
+    borderColor: "#f5c542",
+    margin: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  header: { fontSize: 18, fontWeight: "bold", color: "#fff", marginBottom: 5 },
+  time: { fontSize: 16, color: "#eee" },
+  weather: { fontSize: 14, color: "#ddd", marginTop: 5 },
+});
+
+export default TimeZoneStatus;
